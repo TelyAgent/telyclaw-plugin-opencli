@@ -24232,7 +24232,8 @@
       "created_at",
       "url",
       "has_media",
-      "media_urls"
+      "media_urls",
+      "card"
     ],
     "type": "js",
     "modulePath": "twitter/list-tweets.js",
@@ -24629,7 +24630,8 @@
       "views",
       "url",
       "has_media",
-      "media_urls"
+      "media_urls",
+      "card"
     ],
     "type": "js",
     "modulePath": "twitter/search.js",
@@ -24675,7 +24677,8 @@
       "retweets",
       "url",
       "has_media",
-      "media_urls"
+      "media_urls",
+      "card"
     ],
     "type": "js",
     "modulePath": "twitter/thread.js",
@@ -24728,7 +24731,8 @@
       "created_at",
       "url",
       "has_media",
-      "media_urls"
+      "media_urls",
+      "card"
     ],
     "type": "js",
     "modulePath": "twitter/timeline.js",
