@@ -12,6 +12,7 @@ import { BrowserBridge } from './dist/src/browser/bridge.js';
 import { getDaemonHealth } from './dist/src/browser/daemon-client.js';
 
 const SESSION_NAME = 'telyclaw';
+const SNAPSHOT_TIMEOUT_MS = 45_000;
 
 const toolName = process.argv[2];
 const params = JSON.parse(process.argv[3] || '{}');
@@ -46,7 +47,11 @@ async function main() {
   try {
     if (toolName !== 'opencli_daemon_status') {
       bridge = new BrowserBridge();
-      daemonPage = await bridge.connect({ session: SESSION_NAME });
+      daemonPage = await bridge.connect({
+        session: SESSION_NAME,
+        siteSession: 'persistent',
+        idleTimeout: 300,
+      });
     }
 
     const result = await handler(params);
@@ -79,11 +84,17 @@ async function handleExec({ code }) {
 }
 
 async function handleSnapshot(opts) {
-  return daemonPage.snapshot({
+  const snapshotPromise = daemonPage.snapshot({
     compact: opts.compact,
     interactive: opts.interactive,
-    maxDepth: opts.maxDepth,
+    maxDepth: Math.min(opts.maxDepth || 50, 80),
   });
+
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Snapshot timed out after ${SNAPSHOT_TIMEOUT_MS / 1000}s`)), SNAPSHOT_TIMEOUT_MS)
+  );
+
+  return Promise.race([snapshotPromise, timeoutPromise]);
 }
 
 async function handleScreenshot({ fullPage = false, format = 'png' }) {
@@ -133,19 +144,37 @@ async function handleAdapterCommand({ site, command, args = {} }) {
   const { dirname, join } = await import('node:path');
 
   const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'opencli');
-  const argsList = Object.entries(args).flatMap(([k, v]) =>
-    typeof v === 'boolean' ? (v ? [`--${k}`] : []) : [`--${k}`, String(v)]
+
+  // Positional args: args._ (array) or common positional keys like query/q/text
+  const positional = Array.isArray(args._) ? args._.map(String) : [];
+  const commonPositionalKeys = ['query', 'q', 'text', 'message', 'content', 'name', 'id'];
+  for (const key of commonPositionalKeys) {
+    if (key in args && !positional.length) {
+      positional.push(String(args[key]));
+      break;
+    }
+  }
+
+  // Flag args: everything except _ and positional keys we consumed
+  const flagKeys = Object.keys(args).filter(
+    (k) => k !== '_' && !(commonPositionalKeys.includes(k) && positional.includes(String(args[k])))
   );
+  const flagArgs = flagKeys.flatMap((k) => {
+    const v = args[k];
+    return typeof v === 'boolean' ? (v ? [`--${k}`] : []) : [`--${k}`, String(v)];
+  });
+
+  const allArgs = [site, command, ...positional, ...flagArgs, '-f', 'json'];
 
   try {
-    const result = execFileSync(process.execPath, [cliPath, site, command, ...argsList, '-f', 'json'], {
+    const result = execFileSync(process.execPath, [cliPath, ...allArgs], {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 60000,
     });
     return JSON.parse(result);
   } catch {
-    const result = execFileSync('opencli', [site, command, ...argsList, '-f', 'json'], {
+    const result = execFileSync('opencli', allArgs, {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 60000,

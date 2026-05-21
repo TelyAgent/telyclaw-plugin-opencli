@@ -150,13 +150,14 @@
       },
       {
         "name": "opencli_adapter_command",
-        "description": "执行 OpenCLI 内置的网站适配器命令，支持 100+ 网站（12306、知乎、B站、Twitter、微博、小红书、GitHub 等）",
+        "description": "【首选工具】通过网站 API 获取结构化内容。支持搜索(search/hot)、获取详情(question/answer-detail/video)、用户信息(me)等操作。对于适配器返回的 URL 内容，应使用此工具的详情命令而非浏览器navigate+snapshot。不知道某站点有哪些命令时，传 command='--help' 查看",
+        "searchHint": "site adapter search hot detail content article question answer video user info api",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "site": { "type": "string", "description": "站点名称，如 zhihu, bilibili, twitter, 12306, xiaohongshu" },
-            "command": { "type": "string", "description": "命令名称，如 hot, search, orders, me, tweets" },
-            "args": { "type": "object", "description": "命令参数，如 { limit: 10 }" }
+            "site": { "type": "string", "description": "站点名称，如 zhihu, bilibili, twitter, 12306, xiaohongshu, github" },
+            "command": { "type": "string", "description": "命令名称。列表类: search/hot/recommend；详情类: question/answer-detail/video；查看帮助: --help" },
+            "args": { "type": "object", "description": "命令参数。位置参数用 query/text/id 键；选项参数用 limit/type 等键。如 { query: '关键词', limit: 10 }" }
           },
           "required": ["site", "command"]
         },
