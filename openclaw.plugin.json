@@ -1,0 +1,229 @@
+{
+  "id": "opencli-browser",
+  "name": "OpenCLI Browser",
+  "description": "通过 OpenCLI 操控 Chrome 浏览器，内置 100+ 网站适配器（知乎、B站、微博、12306、Twitter 等）",
+  "version": "1.8.0",
+  "permissions": ["network:outbound"],
+  "entry": "run-tool.mjs",
+  "skills": ["skills/browser-control"],
+  "contracts": {
+    "tools": [
+      {
+        "name": "opencli_browser_navigate",
+        "description": "在浏览器中导航到指定 URL",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": { "type": "string", "description": "目标网页 URL" }
+          },
+          "required": ["url"]
+        },
+        "isReadOnly": false
+      },
+      {
+        "name": "opencli_browser_exec",
+        "description": "在浏览器页面中执行 JavaScript 代码并返回结果",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "code": { "type": "string", "description": "要执行的 JavaScript 代码" }
+          },
+          "required": ["code"]
+        },
+        "isReadOnly": true
+      },
+      {
+        "name": "opencli_browser_snapshot",
+        "description": "获取当前页面的 DOM/可访问性树结构快照，用于 AI 理解页面内容",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "compact": { "type": "boolean", "description": "精简模式，默认 true", "default": true },
+            "interactive": { "type": "boolean", "description": "仅返回可交互元素", "default": false },
+            "maxDepth": { "type": "number", "description": "最大 DOM 深度", "default": 50 },
+            "selector": { "type": "string", "description": "CSS 选择器，仅提取匹配元素" }
+          }
+        },
+        "isReadOnly": true
+      },
+      {
+        "name": "opencli_browser_screenshot",
+        "description": "对当前浏览器页面截图，返回 base64 编码的图片",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fullPage": { "type": "boolean", "description": "是否截取完整页面", "default": false },
+            "format": { "type": "string", "enum": ["png", "jpeg"], "description": "图片格式", "default": "png" }
+          }
+        },
+        "isReadOnly": true
+      },
+      {
+        "name": "opencli_browser_click",
+        "description": "点击页面上的指定元素（通过 snapshot 返回的 ref 值定位）",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ref": { "type": "string", "description": "元素引用标识（来自 snapshot 结果）" },
+            "nth": { "type": "number", "description": "匹配多个元素时选第几个（0-based）" }
+          },
+          "required": ["ref"]
+        },
+        "isReadOnly": false
+      },
+      {
+        "name": "opencli_browser_type",
+        "description": "逐字符输入文本（模拟键盘输入，触发所有 input 事件）",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ref": { "type": "string", "description": "输入框引用标识（来自 snapshot）" },
+            "text": { "type": "string", "description": "要输入的文本" }
+          },
+          "required": ["ref", "text"]
+        },
+        "isReadOnly": false
+      },
+      {
+        "name": "opencli_browser_fill",
+        "description": "快速填充输入框（先清空再一次性填入，速度比 typeText 快）",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ref": { "type": "string", "description": "输入框引用标识（来自 snapshot）" },
+            "text": { "type": "string", "description": "要填充的文本" }
+          },
+          "required": ["ref", "text"]
+        },
+        "isReadOnly": false
+      },
+      {
+        "name": "opencli_browser_scroll",
+        "description": "滚动页面内容",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "direction": { "type": "string", "enum": ["up", "down"], "description": "滚动方向", "default": "down" },
+            "amount": { "type": "number", "description": "滚动像素量", "default": 500 },
+            "ref": { "type": "string", "description": "滚动到指定元素位置" }
+          }
+        },
+        "isReadOnly": false
+      },
+      {
+        "name": "opencli_browser_cookies",
+        "description": "读取浏览器中指定域名的 Cookie",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "domain": { "type": "string", "description": "目标域名，如 kyfw.12306.cn" },
+            "url": { "type": "string", "description": "目标 URL" }
+          }
+        },
+        "isReadOnly": true
+      },
+      {
+        "name": "opencli_browser_network",
+        "description": "捕获页面的网络请求（XHR/fetch）",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["start", "read"], "description": "开始捕获或读取结果" },
+            "pattern": { "type": "string", "description": "URL 过滤模式（仅捕获匹配的请求）" }
+          },
+          "required": ["action"]
+        },
+        "isReadOnly": true
+      },
+      {
+        "name": "opencli_browser_upload",
+        "description": "上传文件到页面中的 file input 元素",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ref": { "type": "string", "description": "file input 元素引用标识（来自 snapshot）" },
+            "files": { "type": "array", "items": { "type": "string" }, "description": "要上传的本地文件路径列表" }
+          },
+          "required": ["ref", "files"]
+        },
+        "isReadOnly": false
+      },
+      {
+        "name": "opencli_adapter_command",
+        "description": "执行 OpenCLI 内置的网站适配器命令，支持 100+ 网站（12306、知乎、B站、Twitter、微博、小红书、GitHub 等）",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "site": { "type": "string", "description": "站点名称，如 zhihu, bilibili, twitter, 12306, xiaohongshu" },
+            "command": { "type": "string", "description": "命令名称，如 hot, search, orders, me, tweets" },
+            "args": { "type": "object", "description": "命令参数，如 { limit: 10 }" }
+          },
+          "required": ["site", "command"]
+        },
+        "isReadOnly": true
+      },
+      {
+        "name": "opencli_daemon_status",
+        "description": "检查 OpenCLI 守护进程和 Chrome 浏览器的连接状态",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "isReadOnly": true
+      }
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "chromePath": {
+        "type": "string",
+        "description": "Chrome 可执行文件路径，留空则自动检测（支持 Chrome/Chromium/Edge/Arc/Brave）"
+      },
+      "userDataDir": {
+        "type": "string",
+        "description": "Chrome 用户数据目录，留空则使用 TelyClaw 默认隔离目录"
+      },
+      "daemonPort": {
+        "type": "number",
+        "description": "OpenCLI daemon 端口",
+        "default": 19825
+      },
+      "cdpPort": {
+        "type": "number",
+        "description": "Chrome 远程调试端口",
+        "default": 19826
+      },
+      "headless": {
+        "type": "boolean",
+        "description": "无头模式（不显示浏览器窗口）",
+        "default": false
+      }
+    }
+  },
+  "uiHints": {
+    "chromePath": {
+      "label": "Chrome 路径",
+      "help": "Chrome/Chromium 的安装路径，留空自动检测",
+      "placeholder": "自动检测"
+    },
+    "userDataDir": {
+      "label": "用户数据目录",
+      "help": "浏览器登录态存储目录",
+      "placeholder": "自动管理"
+    },
+    "daemonPort": {
+      "label": "Daemon 端口",
+      "placeholder": "19825"
+    },
+    "cdpPort": {
+      "label": "CDP 端口",
+      "placeholder": "19826"
+    },
+    "headless": {
+      "label": "无头模式",
+      "help": "启用后浏览器窗口不可见"
+    }
+  }
+}

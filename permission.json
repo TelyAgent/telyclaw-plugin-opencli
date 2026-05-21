@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "plugin": "opencli-browser",
+  "description": "通过 OpenCLI CDP 直连操控 Chrome 浏览器，内置 100+ 网站适配器支持",
+  "default_risk": "Medium",
+  "tools": {
+    "opencli_daemon_status": {
+      "risk": "Low",
+      "action_type": "Read",
+      "has_external_side_effect": false,
+      "is_reversible": true,
+      "description": "查询 daemon 和 Chrome 连接状态"
+    },
+    "opencli_browser_navigate": {
+      "risk": "Low",
+      "action_type": "Execute",
+      "has_external_side_effect": true,
+      "is_reversible": true,
+      "description": "浏览器页面导航"
+    },
+    "opencli_browser_exec": {
+      "risk": "High",
+      "action_type": "Execute",
+      "has_external_side_effect": true,
+      "is_reversible": false,
+      "description": "在页面中执行任意 JavaScript 代码"
+    },
+    "opencli_browser_snapshot": {
+      "risk": "Low",
+      "action_type": "Read",
+      "has_external_side_effect": false,
+      "is_reversible": true,
+      "description": "提取页面 DOM/可访问性快照"
+    },
+    "opencli_browser_screenshot": {
+      "risk": "Low",
+      "action_type": "Read",
+      "has_external_side_effect": false,
+      "is_reversible": true,
+      "description": "页面截图"
+    },
+    "opencli_browser_click": {
+      "risk": "Medium",
+      "action_type": "Execute",
+      "has_external_side_effect": true,
+      "is_reversible": false,
+      "description": "点击页面元素"
+    },
+    "opencli_browser_type": {
+      "risk": "Medium",
+      "action_type": "Execute",
+      "has_external_side_effect": true,
+      "is_reversible": false,
+      "description": "在输入框中逐字符输入文本"
+    },
+    "opencli_browser_fill": {
+      "risk": "Medium",
+      "action_type": "Execute",
+      "has_external_side_effect": true,
+      "is_reversible": false,
+      "description": "填充输入框（清空后填入）"
+    },
+    "opencli_browser_scroll": {
+      "risk": "Low",
+      "action_type": "Execute",
+      "has_external_side_effect": true,
+      "is_reversible": true,
+      "description": "滚动页面"
+    },
+    "opencli_browser_cookies": {
+      "risk": "Medium",
+      "action_type": "Read",
+      "has_external_side_effect": false,
+      "is_reversible": true,
+      "description": "读取浏览器 Cookie"
+    },
+    "opencli_browser_network": {
+      "risk": "Low",
+      "action_type": "Read",
+      "has_external_side_effect": false,
+      "is_reversible": true,
+      "description": "捕获页面网络请求"
+    },
+    "opencli_browser_upload": {
+      "risk": "Medium",
+      "action_type": "Execute",
+      "has_external_side_effect": true,
+      "is_reversible": false,
+      "description": "上传文件到页面"
+    },
+    "opencli_adapter_command": {
+      "risk": "Medium",
+      "action_type": "Read",
+      "has_external_side_effect": false,
+      "is_reversible": true,
+      "description": "执行 OpenCLI adapter 快捷命令（100+ 网站支持）"
+    }
+  }
+}
