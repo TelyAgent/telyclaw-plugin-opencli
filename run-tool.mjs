@@ -2,23 +2,23 @@
 /**
  * OpenCLI TelyClaw Plugin — run-tool.mjs
  *
- * 通过 OpenCLI CDPBridge 直连 Chrome CDP，执行浏览器操作。
- * 插件文件位于 OpenCLI 仓库根目录，通过相对路径导入同仓库的 dist/ 模块。
+ * 通过 BrowserBridge (daemon + Chrome 扩展) 执行浏览器操作。
+ * daemon 管理 Chrome 生命周期和扩展连接，Page 通过 HTTP → WebSocket 发送命令。
  *
  * 调用方式: node run-tool.mjs <toolName> '<jsonParams>'
- * 环境变量:
- *   PLUGIN_CONFIG — 插件配置 JSON (chromePath, daemonPort, cdpPort 等)
  */
 
-import { CDPBridge } from './dist/src/browser/cdp.js';
+import { BrowserBridge } from './dist/src/browser/bridge.js';
 import { getDaemonHealth } from './dist/src/browser/daemon-client.js';
-import { ensureChromeAndDaemonReady } from './daemon-manager.mjs';
+
+const SESSION_NAME = 'telyclaw';
 
 const toolName = process.argv[2];
 const params = JSON.parse(process.argv[3] || '{}');
 const config = JSON.parse(process.env.PLUGIN_CONFIG || '{}');
 
-let cdpPage = null;
+let bridge = null;
+let daemonPage = null;
 
 const TOOL_HANDLERS = {
   opencli_daemon_status: handleDaemonStatus,
@@ -45,8 +45,8 @@ async function main() {
 
   try {
     if (toolName !== 'opencli_daemon_status') {
-      await ensureChromeAndDaemonReady(config);
-      cdpPage = await getOrCreatePage(config);
+      bridge = new BrowserBridge();
+      daemonPage = await bridge.connect({ session: SESSION_NAME });
     }
 
     const result = await handler(params);
@@ -55,13 +55,6 @@ async function main() {
     console.log(JSON.stringify({ success: false, error: err.message }));
     process.exit(1);
   }
-}
-
-async function getOrCreatePage(config) {
-  const cdpPort = config.cdpPort || 19826;
-  const endpoint = `http://127.0.0.1:${cdpPort}`;
-  const bridge = new CDPBridge();
-  return bridge.connect({ cdpEndpoint: endpoint });
 }
 
 async function handleDaemonStatus() {
@@ -77,16 +70,16 @@ async function handleDaemonStatus() {
 }
 
 async function handleNavigate({ url }) {
-  await cdpPage.goto(url, { waitUntil: 'load' });
-  return { url: await cdpPage.getCurrentUrl() || url };
+  await daemonPage.goto(url, { waitUntil: 'load' });
+  return { url: await daemonPage.getCurrentUrl() || url };
 }
 
 async function handleExec({ code }) {
-  return cdpPage.evaluate(code);
+  return daemonPage.evaluate(code);
 }
 
 async function handleSnapshot(opts) {
-  return cdpPage.snapshot({
+  return daemonPage.snapshot({
     compact: opts.compact,
     interactive: opts.interactive,
     maxDepth: opts.maxDepth,
@@ -94,44 +87,44 @@ async function handleSnapshot(opts) {
 }
 
 async function handleScreenshot({ fullPage = false, format = 'png' }) {
-  return cdpPage.screenshot({ fullPage, format });
+  return daemonPage.screenshot({ fullPage, format });
 }
 
 async function handleClick({ ref, nth }) {
-  return cdpPage.click(ref, { nth });
+  return daemonPage.click(ref, { nth });
 }
 
 async function handleType({ ref, text }) {
-  return cdpPage.typeText(ref, text);
+  return daemonPage.typeText(ref, text);
 }
 
 async function handleFill({ ref, text }) {
-  return cdpPage.fillText(ref, text);
+  return daemonPage.fillText(ref, text);
 }
 
 async function handleScroll({ direction = 'down', amount = 500, ref }) {
   if (ref) {
-    return cdpPage.scrollTo(ref);
+    return daemonPage.scrollTo(ref);
   }
-  await cdpPage.scroll(direction, amount);
+  await daemonPage.scroll(direction, amount);
   return { scrolled: direction, amount };
 }
 
 async function handleCookies({ domain, url }) {
-  return cdpPage.getCookies({ domain, url });
+  return daemonPage.getCookies({ domain, url });
 }
 
 async function handleNetwork({ action, pattern }) {
   if (action === 'start') {
-    await cdpPage.startNetworkCapture(pattern);
+    await daemonPage.startNetworkCapture(pattern);
     return { capturing: true };
   }
-  const entries = await cdpPage.readNetworkCapture();
+  const entries = await daemonPage.readNetworkCapture();
   return { entries, count: entries.length };
 }
 
 async function handleUpload({ ref, files }) {
-  return cdpPage.uploadFiles(ref, files);
+  return daemonPage.uploadFiles(ref, files);
 }
 
 async function handleAdapterCommand({ site, command, args = {} }) {
