@@ -9,8 +9,24 @@
   "contracts": {
     "tools": [
       {
+        "name": "opencli_adapter_command",
+        "description": "【必须首先调用】通过网站 API 获取结构化内容。当用户要求获取知乎/B站/微博/小红书/Twitter/抖音/豆瓣/GitHub/12306 等 150+ 网站的热榜、搜索、详情、用户信息等内容时，必须优先使用此工具。支持命令类别：列表类(hot/search/recommend/ranking)、详情类(question/answer-detail/video/read/detail)、用户类(me/profile/user)。不知道某站点有什么命令时传入 command='--help' 查看。从搜索/列表结果中获取内容详情时，继续用此工具的详情命令，严禁切换到 browser navigate+snapshot",
+        "searchHint": "zhihu bilibili weibo xiaohongshu twitter douyin hot search ranking detail content read adapter api site",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "site": { "type": "string", "description": "站点名称。常用: zhihu/bilibili/weibo/xiaohongshu/twitter/youtube/reddit/github/taobao/jd/douyin/douban/tieba/v2ex/12306/boss/amazon/medium/substack/wikipedia/hackernews/eastmoney/xueqiu/arxiv/pubmed/chatgpt/claude/deepseek/gemini/spotify" },
+            "command": { "type": "string", "description": "命令名。列表: hot/search/recommend/ranking/feed。详情: question/answer-detail/video/read/detail/thread。查看可用命令: --help" },
+            "args": { "type": "object", "description": "命令参数。位置参数用 query/q/id/text 键；选项用 limit/sort/type 键" }
+          },
+          "required": ["site", "command"]
+        },
+        "isReadOnly": true
+      },
+      {
         "name": "opencli_browser_navigate",
-        "description": "在浏览器中导航到指定 URL",
+        "description": "【仅适配器不支持时使用】在浏览器中导航到指定 URL。注意：知乎/B站/微博/小红书/Twitter 等有适配器的网站，必须用 opencli_adapter_command 代替此工具",
+        "searchHint": "browser navigate url open page visit",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -23,6 +39,7 @@
       {
         "name": "opencli_browser_exec",
         "description": "在浏览器页面中执行 JavaScript 代码并返回结果",
+        "searchHint": "javascript evaluate execute browser js code",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -34,7 +51,8 @@
       },
       {
         "name": "opencli_browser_snapshot",
-        "description": "获取当前页面的 DOM/可访问性树结构快照，用于 AI 理解页面内容",
+        "description": "【仅适配器不支持时使用】获取当前页面的 DOM 结构快照。注意：知乎/B站/微博/小红书/Twitter 等有适配器的网站，必须用 opencli_adapter_command 的详情命令代替此工具+click 组合来提取内容",
+        "searchHint": "snapshot dom page content accessibility tree extract",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -147,21 +165,6 @@
           "required": ["ref", "files"]
         },
         "isReadOnly": false
-      },
-      {
-        "name": "opencli_adapter_command",
-        "description": "【首选工具】通过网站 API 获取结构化内容。支持搜索(search/hot)、获取详情(question/answer-detail/video)、用户信息(me)等操作。对于适配器返回的 URL 内容，应使用此工具的详情命令而非浏览器navigate+snapshot。不知道某站点有哪些命令时，传 command='--help' 查看",
-        "searchHint": "site adapter search hot detail content article question answer video user info api",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "site": { "type": "string", "description": "站点名称，如 zhihu, bilibili, twitter, 12306, xiaohongshu, github" },
-            "command": { "type": "string", "description": "命令名称。列表类: search/hot/recommend；详情类: question/answer-detail/video；查看帮助: --help" },
-            "args": { "type": "object", "description": "命令参数。位置参数用 query/text/id 键；选项参数用 limit/type 等键。如 { query: '关键词', limit: 10 }" }
-          },
-          "required": ["site", "command"]
-        },
-        "isReadOnly": true
       },
       {
         "name": "opencli_daemon_status",
