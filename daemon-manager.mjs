@@ -107,8 +107,16 @@ function probeCDP(port) {
     const req = httpRequest(
       { hostname: '127.0.0.1', port, path: '/json', method: 'GET', timeout: 2000 },
       (res) => {
-        res.resume();
-        resolve(res.statusCode >= 200 && res.statusCode < 300);
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          try {
+            const targets = JSON.parse(body);
+            resolve(Array.isArray(targets) ? targets : []);
+          } catch {
+            resolve([]);
+          }
+        });
       },
     );
     req.on('error', () => resolve(false));
@@ -117,11 +125,43 @@ function probeCDP(port) {
   });
 }
 
+function createBlankPage(port) {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { hostname: '127.0.0.1', port, path: '/json/new?url=about:blank', method: 'PUT', timeout: 5000 },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            resolve(undefined);
+          }
+        });
+      },
+    );
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('createBlankPage timeout')); });
+    req.end();
+  });
+}
+
 export async function ensureChromeAndDaemonReady(config) {
   const health = await getDaemonHealth();
+  const cdpPort = config.cdpPort || 19826;
+
   if (health.state === 'ready') {
-    const cdpPort = config.cdpPort || 19826;
-    if (await probeCDP(cdpPort)) return;
+    const targets = await probeCDP(cdpPort);
+    if (targets && targets.length > 0) return;
+    if (targets && targets.length === 0) {
+      try {
+        await createBlankPage(cdpPort);
+        return;
+      } catch {
+        // Fall through — restart Chrome
+      }
+    }
   }
 
   if (health.state === 'stopped') {
@@ -129,7 +169,6 @@ export async function ensureChromeAndDaemonReady(config) {
     await new Promise((r) => setTimeout(r, 1500));
   }
 
-  const cdpPort = config.cdpPort || 19826;
   const cdpAlive = await probeCDP(cdpPort);
   if (!cdpAlive) {
     spawnChrome(config);
@@ -138,7 +177,17 @@ export async function ensureChromeAndDaemonReady(config) {
   const deadline = Date.now() + STARTUP_TIMEOUT;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-    if (await probeCDP(cdpPort)) return;
+    const targets = await probeCDP(cdpPort);
+    if (targets && targets.length > 0) return;
+    // CDP is up but no pages yet — create one
+    if (targets && targets.length === 0) {
+      try {
+        await createBlankPage(cdpPort);
+        return;
+      } catch {
+        // Keep polling
+      }
+    }
   }
 
   throw new Error(
