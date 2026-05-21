@@ -17,7 +17,7 @@
           "properties": {
             "site": { "type": "string", "description": "站点名称。常用: zhihu/bilibili/weibo/xiaohongshu/twitter/youtube/reddit/github/taobao/jd/douyin/douban/tieba/v2ex/12306/boss/amazon/medium/substack/wikipedia/hackernews/eastmoney/xueqiu/arxiv/pubmed/chatgpt/claude/deepseek/gemini/spotify" },
             "command": { "type": "string", "description": "命令名。列表: hot/search/recommend/ranking/feed。详情: question/answer-detail/video/read/detail/thread。查看可用命令: --help" },
-            "args": { "type": "object", "description": "命令参数。位置参数用 query/q/id/text 键；选项用 limit/sort/type 键" }
+            "args": { "type": "object", "description": "命令参数。务必从之前返回结果的 url 字段提取完整 URL 传入，如 {id: item.url}；选项参数用 limit/sort/type 等键" }
           },
           "required": ["site", "command"]
         },

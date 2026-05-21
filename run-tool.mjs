@@ -14,6 +14,96 @@ import { getDaemonHealth } from './dist/src/browser/daemon-client.js';
 const SESSION_NAME = 'telyclaw';
 const SNAPSHOT_TIMEOUT_MS = 45_000;
 
+// 有适配器支持的域名映射：域名 → 适配器 site 名称
+// 当 AI 试图用浏览器工具访问这些域名的 URL 时，直接拦截并引导使用 opencli_adapter_command
+const ADAPTER_DOMAINS = {
+  // 内容/阅读
+  'zhihu.com': 'zhihu', 'zhuanlan.zhihu.com': 'zhihu',
+  'medium.com': 'medium',
+  'substack.com': 'substack',
+  'douban.com': 'douban',
+  'wikipedia.org': 'wikipedia',
+  'bbc.com': 'bbc', 'bbc.co.uk': 'bbc',
+  'news.ycombinator.com': 'hackernews',
+  'producthunt.com': 'producthunt',
+  'dev.to': 'devto',
+  // 社交/社区
+  'twitter.com': 'twitter', 'x.com': 'twitter',
+  'weibo.com': 'weibo', 'weibo.cn': 'weibo',
+  'reddit.com': 'reddit',
+  'v2ex.com': 'v2ex',
+  'tieba.baidu.com': 'tieba',
+  'bsky.app': 'bluesky',
+  'facebook.com': 'facebook',
+  'instagram.com': 'instagram',
+  'linkedin.com': 'linkedin',
+  // 视频/娱乐
+  'bilibili.com': 'bilibili',
+  'youtube.com': 'youtube', 'youtu.be': 'youtube',
+  'douyin.com': 'douyin',
+  'tiktok.com': 'tiktok',
+  'spotify.com': 'spotify',
+  // 购物/电商
+  'taobao.com': 'taobao',
+  'jd.com': 'jd',
+  'amazon.com': 'amazon', 'amazon.co.jp': 'amazon', 'amazon.co.uk': 'amazon', 'amazon.de': 'amazon',
+  'goofish.com': 'xianyu', '2.taobao.com': 'xianyu',
+  'smzdm.com': 'smzdm',
+  'dianping.com': 'dianping',
+  '1688.com': '1688',
+  // 职场
+  'zhipin.com': 'boss',
+  '51job.com': '51job',
+  // 开发
+  'gitee.com': 'gitee',
+  'stackoverflow.com': 'stackoverflow',
+  'npmjs.com': 'npm',
+  'pypi.org': 'pypi',
+  'hub.docker.com': 'dockerhub',
+  // 学术
+  'arxiv.org': 'arxiv',
+  'pubmed.ncbi.nlm.nih.gov': 'pubmed',
+  'scholar.google.com': 'google-scholar',
+  // AI
+  'chatgpt.com': 'chatgpt',
+  'claude.ai': 'claude',
+  'chat.deepseek.com': 'deepseek',
+  'gemini.google.com': 'gemini',
+  'grok.com': 'grok',
+  // 金融
+  'eastmoney.com': 'eastmoney',
+  'xueqiu.com': 'xueqiu',
+  // 旅行
+  '12306.cn': '12306',
+  // 生活
+  'hupu.com': 'hupu',
+  'xiaohongshu.com': 'xiaohongshu',
+  'rednote.com': 'xiaohongshu',
+  // 新闻
+  'toutiao.com': 'toutiao',
+  'reuters.com': 'reuters',
+};
+
+function checkAdapterForUrl(url) {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    // 精确匹配或父域名匹配
+    for (const [domain, site] of Object.entries(ADAPTER_DOMAINS)) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        return site;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function rejectIfAdapter(url) {
+  const site = checkAdapterForUrl(url);
+  if (!site) return null;
+  const msg = `此网站有 OpenCLI 适配器支持 (site="${site}")，请勿使用浏览器工具访问。应直接调用 opencli_adapter_command(site="${site}", command=...) 获取结构化数据。用 opencli_adapter_command(site="${site}", command="--help") 查看可用命令`;
+  throw new Error(msg);
+}
+
 const toolName = process.argv[2];
 const params = JSON.parse(process.argv[3] || '{}');
 const config = JSON.parse(process.env.PLUGIN_CONFIG || '{}');
@@ -75,6 +165,7 @@ async function handleDaemonStatus() {
 }
 
 async function handleNavigate({ url }) {
+  rejectIfAdapter(url);
   await daemonPage.goto(url, { waitUntil: 'load' });
   return { url: await daemonPage.getCurrentUrl() || url };
 }
@@ -84,6 +175,12 @@ async function handleExec({ code }) {
 }
 
 async function handleSnapshot(opts) {
+  // 检查当前页面 URL 是否匹配适配器域名
+  try {
+    const currentUrl = await daemonPage.getCurrentUrl();
+    if (currentUrl) rejectIfAdapter(currentUrl);
+  } catch {} // getCurrentUrl 失败时不阻止
+
   const snapshotPromise = daemonPage.snapshot({
     compact: opts.compact,
     interactive: opts.interactive,
@@ -98,6 +195,11 @@ async function handleSnapshot(opts) {
 }
 
 async function handleScreenshot({ fullPage = false, format = 'png' }) {
+  try {
+    const currentUrl = await daemonPage.getCurrentUrl();
+    if (currentUrl) rejectIfAdapter(currentUrl);
+  } catch {} // getCurrentUrl 失败时不阻止
+
   return daemonPage.screenshot({ fullPage, format });
 }
 
@@ -145,19 +247,22 @@ async function handleAdapterCommand({ site, command, args = {} }) {
 
   const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'opencli');
 
-  // Positional args: args._ (array) or common positional keys like query/q/text
+  // Track which key was consumed as positional so we don't also pass it as a flag
+  let consumedKey = null;
+
+  const commonPositionalKeys = ['query', 'q', 'text', 'message', 'content', 'name', 'id', 'url', 'target'];
   const positional = Array.isArray(args._) ? args._.map(String) : [];
-  const commonPositionalKeys = ['query', 'q', 'text', 'message', 'content', 'name', 'id'];
   for (const key of commonPositionalKeys) {
     if (key in args && !positional.length) {
       positional.push(String(args[key]));
+      consumedKey = key;
       break;
     }
   }
 
-  // Flag args: everything except _ and positional keys we consumed
+  // Flag args: everything except _ and the consumed positional key
   const flagKeys = Object.keys(args).filter(
-    (k) => k !== '_' && !(commonPositionalKeys.includes(k) && positional.includes(String(args[k])))
+    (k) => k !== '_' && k !== consumedKey
   );
   const flagArgs = flagKeys.flatMap((k) => {
     const v = args[k];
