@@ -6,8 +6,6 @@
   "permissions": ["network:outbound"],
   "entry": "run-tool.mjs",
   "skills": ["skills/browser-control"],
-  "icon": "./assets/opencli.png",
-  "brandColor": "#00FFFF",
   "contracts": {
     "tools": [
       {
