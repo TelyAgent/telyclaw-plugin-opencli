@@ -7,7 +7,7 @@
   "entry": "run-tool.mjs",
   "skills": ["skills/browser-control"],
   "icon": "./assets/opencli.png",
-  "brand_color": "#00FFFF",
+  "brandColor": "#00FFFF",
   "contracts": {
     "tools": [
       {
