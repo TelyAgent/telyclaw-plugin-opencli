@@ -10,8 +10,8 @@
     "tools": [
       {
         "name": "opencli_adapter_command",
-        "description": "【必须首先调用】通过网站 API 获取结构化内容。当用户要求获取知乎/B站/微博/小红书/Twitter/抖音/豆瓣/GitHub/12306 等 150+ 网站的热榜、搜索、详情、用户信息等内容时，必须优先使用此工具。支持命令类别：列表类(hot/search/recommend/ranking)、详情类(question/answer-detail/video/read/detail)、用户类(me/profile/user)。不知道某站点有什么命令时传入 command='--help' 查看。从搜索/列表结果中获取内容详情时，继续用此工具的详情命令，严禁切换到 browser navigate+snapshot",
-        "searchHint": "zhihu bilibili weibo xiaohongshu twitter douyin hot search ranking detail content read adapter api site",
+        "description": "通过网站 API 获取结构化内容（150+ 网站适配器）。【强制流程】① 每次新站点首次使用时，必须先传 command='--help' 查看该站点有哪些命令，禁止猜测命令名。② 根据 --help 返回的命令列表匹配用户意图（hot/search=列表，question/video/read/detail=详情，publish/reply/like=写入）。③ 用匹配到的命令和参数执行。从搜索/列表结果获取详情时，继续用详情命令，严禁切换到 browser navigate+snapshot",
+        "searchHint": "opencli browser plugin adapter zhihu bilibili weibo xiaohongshu twitter douyin hot search ranking detail content read site command help",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -26,7 +26,7 @@
       {
         "name": "opencli_browser_navigate",
         "description": "【仅适配器不支持时使用】在浏览器中导航到指定 URL。注意：知乎/B站/微博/小红书/Twitter 等有适配器的网站，必须用 opencli_adapter_command 代替此工具",
-        "searchHint": "browser navigate url open page visit",
+        "searchHint": "opencli browser navigate url open page visit",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -39,7 +39,7 @@
       {
         "name": "opencli_browser_exec",
         "description": "在浏览器页面中执行 JavaScript 代码并返回结果",
-        "searchHint": "javascript evaluate execute browser js code",
+        "searchHint": "opencli browser javascript evaluate execute js code",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -52,7 +52,7 @@
       {
         "name": "opencli_browser_snapshot",
         "description": "【仅适配器不支持时使用】获取当前页面的 DOM 结构快照。注意：知乎/B站/微博/小红书/Twitter 等有适配器的网站，必须用 opencli_adapter_command 的详情命令代替此工具+click 组合来提取内容",
-        "searchHint": "snapshot dom page content accessibility tree extract",
+        "searchHint": "opencli browser snapshot dom page content accessibility tree extract",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -67,6 +67,7 @@
       {
         "name": "opencli_browser_screenshot",
         "description": "对当前浏览器页面截图，返回 base64 编码的图片",
+        "searchHint": "opencli browser screenshot capture image base64 png jpeg fullpage",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -79,6 +80,7 @@
       {
         "name": "opencli_browser_click",
         "description": "点击页面上的指定元素（通过 snapshot 返回的 ref 值定位）",
+        "searchHint": "opencli browser click element ref interact",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -92,6 +94,7 @@
       {
         "name": "opencli_browser_type",
         "description": "逐字符输入文本（模拟键盘输入，触发所有 input 事件）",
+        "searchHint": "opencli browser type text input keyboard ref",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -105,6 +108,7 @@
       {
         "name": "opencli_browser_fill",
         "description": "快速填充输入框（先清空再一次性填入，速度比 typeText 快）",
+        "searchHint": "opencli browser fill input form text ref",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -118,6 +122,7 @@
       {
         "name": "opencli_browser_scroll",
         "description": "滚动页面内容",
+        "searchHint": "opencli browser scroll page up down pixel",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -131,6 +136,7 @@
       {
         "name": "opencli_browser_cookies",
         "description": "读取浏览器中指定域名的 Cookie",
+        "searchHint": "opencli browser cookies cookie domain read",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -143,6 +149,7 @@
       {
         "name": "opencli_browser_network",
         "description": "捕获页面的网络请求（XHR/fetch）",
+        "searchHint": "opencli browser network request capture xhr fetch intercept",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -156,6 +163,7 @@
       {
         "name": "opencli_browser_upload",
         "description": "上传文件到页面中的 file input 元素",
+        "searchHint": "opencli browser upload file input ref",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -168,7 +176,8 @@
       },
       {
         "name": "opencli_daemon_status",
-        "description": "检查 OpenCLI 守护进程和 Chrome 浏览器的连接状态",
+        "description": "【任何操作前必须先调用】检查 OpenCLI 守护进程和 Chrome 浏览器的连接状态。如果状态异常（state !== 'connected' 或 extensionConnected !== true），则不得继续调用其他浏览器/adapter 工具，应提示用户检查 Chrome 是否启动",
+        "searchHint": "opencli browser plugin daemon status health check chrome connection doctor ping",
         "inputSchema": {
           "type": "object",
           "properties": {}
