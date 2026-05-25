@@ -274,25 +274,52 @@ async function handleAdapterCommand({ site, command, args = {} }) {
 
   const allArgs = [site, command, ...positional, ...flagArgs, '-f', 'json'];
 
-  try {
-    const result = execFileSync(process.execPath, [cliPath, ...allArgs], {
+  function safeParseJson(raw) {
+    try {
+      return { data: JSON.parse(raw) };
+    } catch (parseErr) {
+      const preview = raw.length > 2000
+        ? raw.slice(0, 1000) + '\n...(truncated)...\n' + raw.slice(-1000)
+        : raw;
+      return { error: `JSON parse failed: ${parseErr.message}`, rawOutput: preview };
+    }
+  }
+
+  async function runWithPath(bin, scriptPath) {
+    const { spawnSync } = await import('node:child_process');
+    const execArgs = scriptPath ? [scriptPath, ...allArgs] : allArgs;
+    const result = spawnSync(bin, execArgs, {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 60000,
+      maxBuffer: 10 * 1024 * 1024,
     });
-    return JSON.parse(result);
+    const stdout = (result.stdout || '').trim();
+    const stderr = (result.stderr || '').trim();
+    if (result.error) throw result.error;
+    const parsed = safeParseJson(stdout);
+    if (parsed.error) {
+      throw Object.assign(new Error(parsed.error), {
+        rawOutput: parsed.rawOutput,
+        stderr,
+      });
+    }
+    return parsed.data;
+  }
+
+  try {
+    return await runWithPath(process.execPath, cliPath);
   } catch (primaryErr) {
     // Fallback 1: try opencli from PATH (works in dev with global install)
     try {
-      const result = execFileSync('opencli', allArgs, {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 60000,
-      });
-      return JSON.parse(result);
+      return await runWithPath('opencli', null);
     } catch {
+      const details = [];
+      if (primaryErr.rawOutput) details.push(`Raw output:\n${primaryErr.rawOutput}`);
+      if (primaryErr.stderr) details.push(`Stderr:\n${primaryErr.stderr}`);
+      const trailer = details.length ? '\n' + details.join('\n') : '';
       throw new Error(`Failed to run opencli adapter command: ${primaryErr.message}. ` +
-        `Make sure 'opencli' is installed (npm i -g @jackwener/opencli) or the plugin dist/ is built.`);
+        `Make sure 'opencli' is installed (npm i -g @jackwener/opencli) or the plugin dist/ is built.${trailer}`);
     }
   }
 }
