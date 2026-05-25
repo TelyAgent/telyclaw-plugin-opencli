@@ -245,7 +245,10 @@ async function handleAdapterCommand({ site, command, args = {} }) {
   const { fileURLToPath } = await import('node:url');
   const { dirname, join } = await import('node:path');
 
-  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'node_modules', '.bin', 'opencli');
+  // Prefer dist/src/main.js directly — more reliable than node_modules/.bin symlink
+  // which may not exist if npm install didn't create bin links (e.g. in packaged apps)
+  const pluginDir = dirname(fileURLToPath(import.meta.url));
+  const cliPath = join(pluginDir, 'dist', 'src', 'main.js');
 
   // Track which key was consumed as positional so we don't also pass it as a flag
   let consumedKey = null;
@@ -278,13 +281,19 @@ async function handleAdapterCommand({ site, command, args = {} }) {
       timeout: 60000,
     });
     return JSON.parse(result);
-  } catch {
-    const result = execFileSync('opencli', allArgs, {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 60000,
-    });
-    return JSON.parse(result);
+  } catch (primaryErr) {
+    // Fallback 1: try opencli from PATH (works in dev with global install)
+    try {
+      const result = execFileSync('opencli', allArgs, {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
+      });
+      return JSON.parse(result);
+    } catch {
+      throw new Error(`Failed to run opencli adapter command: ${primaryErr.message}. ` +
+        `Make sure 'opencli' is installed (npm i -g @jackwener/opencli) or the plugin dist/ is built.`);
+    }
   }
 }
 
